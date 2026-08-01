@@ -1,0 +1,40 @@
+name: Privacy & PII Guardrail
+
+on:
+  pull_request:
+    paths:
+      - 'profiles/**'
+
+jobs:
+  pii-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Scan for Email Addresses
+        run: |
+          echo "Scanning profiles directory for email leaks..."
+          # Regex matches standard pattern: user@domain.tld
+          if grep -rE -i "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" profiles/; then
+            echo "❌ ERROR: Email address detected in profiles/ folder!"
+            echo "Please remove all personal email addresses to preserve privacy."
+            exit 1
+          fi
+          echo "✅ No email addresses found."
+
+      - name: Validate JSON Formatting
+        run: |
+          echo "Validating JSON files..."
+          python3 -c "
+          import glob, json, sys
+          files = glob.glob('profiles/*.json')
+          for file in files:
+              try:
+                  with open(file) as fp:
+                      json.load(fp)
+              except Exception as e:
+                  print(f'❌ ERROR in {file}: {e}')
+                  sys.exit(1)
+          print('✅ All JSON files are valid.')
+          "
